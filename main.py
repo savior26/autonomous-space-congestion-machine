@@ -336,11 +336,8 @@ async def simulation_step(data: StepRequest):
 
 
 class Maneuver(BaseModel):
-
     burn_id: str
-
     burnTime: str
-
     deltaV_vector: Vector3
 
 
@@ -357,145 +354,131 @@ async def schedule_maneuver(data: ManeuverRequest):
     # 1. PRE-VALIDATION
 
     if not sat:
-
-        return {"status": "REJECTED", "reason": "Satellite not found"}
+        return {
+            "status": "REJECTED",
+            "validation": {
+                "ground_station_los": False,
+                "sufficient_fuel": False,
+                "projected_mass_remaining_kg": 0.0
+            }
+        }
 
     if sat.get("status") == "RETIRED":
-
-        return {"status": "REJECTED", "reason": "Satellite is Retired"}
-
-   
+        return {"status": "REJECTED",
+            "validation": {
+                "ground_station_los": False,
+                "sufficient_fuel": False,
+                "projected_mass_remaining_kg": round(sat["mass"], 2)
+            }
+        }
 
     now_dt = parse_time(state_manager.current_time)
-
     sim_offset = (now_dt - state_manager.epoch_start).total_seconds()
-
-
 
     # 2. LOS CHECK
 
     is_visible = any(
-
         calculate_elevation(sat["r"], gs, sim_offset) >= gs['Min_Elevation_Angle_deg']
-
         for gs in GROUND_STATIONS
-
     )
 
     if not is_visible:
-
-        return {"status": "REJECTED", "reason": "Communication Blackout: No Ground Station LOS."}
-
-
+        return {
+            "status": "REJECTED",
+            "validation": {
+                "ground_station_los": False,
+                "sufficient_fuel": True,
+                "projected_mass_remaining_kg": round(sat["mass"], 2)
+            }
+        }
 
     # 3. SEQUENCE PREPARATION
 
     sorted_new_burns = sorted(data.maneuver_sequence, key=lambda x: parse_time(x.burnTime))
-
     existing_queue = state_manager.scheduled_burns.get(data.satelliteId, [])
 
-
-
     # Determine the time of the very last event (scheduled or recorded)
-
     if existing_queue:
-
         # Accessing via .burnTime (Pydantic object)
-
         last_event_time = parse_time(existing_queue[-1].burnTime)
 
     else:
-
         last_event_time = state_manager.last_burn_recorded.get(
-
             data.satelliteId,
-
             now_dt - timedelta(seconds=601)
-
         )
 
-
-
     # 4. COMPREHENSIVE FUEL & COOLDOWN VALIDATION
-
-    # Start with the mass as it will be AFTER the current queue executes
-
     temp_mass = sat["mass"]
 
-   
-
-    # First, subtract fuel for what is already in the queue
-
     for b in existing_queue:
-
         dv = np.linalg.norm([b.deltaV_vector.x, b.deltaV_vector.y, b.deltaV_vector.z])
-
         temp_mass -= calculate_fuel_spent(temp_mass, dv)
-
-
 
     # Now, validate the NEW burns
 
     new_sequence_fuel = 0.0
-
     for burn in sorted_new_burns:
 
         burn_dt = parse_time(burn.burnTime)
 
-       
-
         # A. Latency (10s)
 
         if burn_dt < now_dt + timedelta(seconds=10):
-
-            return {"status": "REJECTED", "reason": "Latency Violation"}
-
-       
+            return {"status": "REJECTED",
+                "validation": {
+                    "ground_station_los": True,
+                    "sufficient_fuel": True,
+                    "projected_mass_remaining_kg": round(temp_mass, 2)
+                }
+            }
 
         # B. Cooldown (600s)
-
         if (burn_dt - last_event_time).total_seconds() < 600:
-
-            return {"status": "REJECTED", "reason": "Cooldown Violation"}
-
-       
+            return {"status": "REJECTED",
+                "validation": {
+                    "ground_station_los": True,
+                    "sufficient_fuel": True,
+                    "projected_mass_remaining_kg": round(temp_mass, 2)
+                }
+            }
 
         # C. Thruster Limit (15m/s)
-
         dv_mag = np.linalg.norm([burn.deltaV_vector.x, burn.deltaV_vector.y, burn.deltaV_vector.z])
-
         if dv_mag > 0.015:
-
-            return {"status": "REJECTED", "reason": "Thruster Limit Exceeded"}
-
-       
-
+            return{
+                "status": "REJECTED",
+                "validation": {
+                    "ground_station_los": True,
+                    "sufficient_fuel": True,
+                    "projected_mass_remaining_kg": round(temp_mass, 2)
+                }
+            }
+    
         # D. Incremental Fuel Math
-
         burn_fuel = calculate_fuel_spent(temp_mass, dv_mag)
-
         new_sequence_fuel += burn_fuel
-
         temp_mass -= burn_fuel # Mass drops for the next burn in the sequence
-
         last_event_time = burn_dt
 
 
 
     # 5. FINAL FUEL GUARD (Check against current available fuel)
 
-    # total_already_committed = sat["mass"] - temp_mass_after_existing_queue
-
-    # We simplified this by using temp_mass throughout
-
+    
     current_fuel = sat["fuel"]
 
     projected_fuel_after_all = current_fuel - (sat["mass"] - temp_mass)
 
-
-
     if projected_fuel_after_all < 2.5:
-        return {"status": "REJECTED", "reason": "Insufficient Fuel (Reserve Limit)"}
+        return {
+            "status": "REJECTED",
+            "validation": {
+                "ground_station_los": True,
+                "sufficient_fuel": False,
+                "projected_mass_remaining_kg": round(temp_mass, 2)
+            }
+        }
 
     # 6. COMMIT
 
