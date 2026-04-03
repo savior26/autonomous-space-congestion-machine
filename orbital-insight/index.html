@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orbital Insight Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app" class="dashboard-grid">
+        <header class="panel header-panel">
+            <div class="logo-container">
+                <div class="pulse-dot"></div>
+                <h1>ORBITAL INSIGHT <span class="subtitle">| TACTICAL COMMAND</span></h1>
+            </div>
+            <div id="system-time" class="digital-clock">SYNC_WAIT...</div>
+        </header>
+
+        <aside class="panel sidebar-left" style="display: flex; flex-direction: column; height: 100%;">
+            <div class="panel-header">
+                <h3>RESOURCE HEATMAP</h3>
+                <span class="badge">FLEET</span>
+            </div>
+            
+            <div id="sat-list" class="scrolling-list" style="height: calc(50% - 40px); overflow-y: auto;"></div> 
+
+            <div class="panel-header" style="border-top: 1px solid rgba(0, 242, 255, 0.2); margin-top: auto;">
+                <h3>Δv COST ANALYSIS</h3>
+                <span class="badge">EFFICIENCY</span>
+            </div>
+            
+            <div class="graph-container" style="height: calc(50% - 40px); width: 100%; position: relative;">
+                <canvas id="cost-graph"></canvas>
+            </div>
+        </aside>
+
+        <main class="map-container panel">
+            
+            <div id="map-view"></div>
+            <div class="zoom-controls">
+                <button id="zoom-in" title="Zoom In">+</button>
+                <button id="zoom-out" title="Zoom Out">-</button>
+            </div>
+            <div class="map-hud bottom-left legend-container">
+                <div class="legend-item"><span class="dot location"></span>Real-time location markers</div>
+                <div class="legend-item"><span class="dashed-line"></span>Predicted trajectory</div>
+                <div class="legend-item"><span class="solid-line"></span>History trailing path</div>
+                <div class="legend-item"><span class="shadow-box terminator"></span>Terminator Line</div>
+            </div>
+
+            <div class="map-hud top-left">LAT/LON TRACKING: ACTIVE</div>
+            <div class="map-hud bottom-right">SYSTEM: NOMINAL</div>
+        </main>
+
+        <aside class="panel sidebar-right">
+            <div class="panel-header">
+                <h3>CONJUNCTION RADAR</h3>
+                <span class="badge danger">LIVE</span>
+            </div>
+            <div class="radar-container" style="flex: 1; min-height: 200px;">
+                <canvas id="bullseye" width="220" height="220"></canvas>
+                <div class="radar-hud bottom-left risk-legend">
+                    <h4>RISK</h4>
+                    <div class="legend-item"><span class="status-dot safe"></span>Safe</div>
+                    <div class="legend-item"><span class="status-dot warning"></span>Warnings (5 km)</div>
+                    <div class="legend-item"><span class="status-dot critical"></span>Critical (1 km)</div>
+                </div>
+            </div>
+            
+            
+            <div id="telemetry-readout" class="telemetry-grid">
+                <div class="tel-item"><span>LATITUDE</span><span id="tel-lat">--</span></div>
+                <div class="tel-item"><span>LONGITUDE</span><span id="tel-lon">--</span></div>
+                <div class="tel-item"><span>STATUS</span><span id="tel-status">--</span></div>
+                <div class="tel-item"><span>FUEL MASS</span><span id="tel-fuel">--</span></div>
+            </div>
+        </aside>
+
+        <footer class="panel bottom-panel">
+            <div class="panel-header">
+                <h3>MANEUVER TIMELINE</h3>
+            </div>
+            <div class="timeline-container"></div>
+        </footer>
+    </div>
+
+    <script type="module" src="./main.js"></script>
+</body>
+</html>
