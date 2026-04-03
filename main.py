@@ -686,4 +686,4 @@ async def get_maneuver_timeline():
         "current_sim_time": state_manager.current_time,
         "schedule": timeline_events
     }
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+app.mount("/", StaticFiles(directory="orbital-insight", html=True), name="static")
